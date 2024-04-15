@@ -1,27 +1,30 @@
+#ifndef SERIES_H
+#define SERIES_H
+
 #include <vector>
 #include <string>
+#include <variant>
 
-using std::string;
-using std::vector;
+// Defines 'any' as a type capable of holding multiple primitive types.
+using any = std::variant<int, float, double, std::string>; // Add other types as needed
 
-namespace framework
-{
-    namespace dataframe
-    {
-        template <typename T>
-        class Series
-        {
-        private:
-            vector<T> data;
-        public:
-            Series() = default;
-            Series(const vector<T> &data);
-            Series(const Series<T> &other);
-            ~Series() = default;
+/**
+ * @brief Class representing a series of data. A series is similar to a column in a DataFrame.
+ */
+class Series {
+private:
+    // Internal storage for the series data
+    std::vector<any> data;
 
-            T &operator[](size_t index);
-            const T &operator[](size_t index) const;
-            int size() const { return data.size(); }
-        };
-    }
-}
+public:
+    // Adds a new element to the series
+    void add(const any& value);
+
+    // Retrieves an element at a specific index
+    any get(int index) const;
+
+    // Method to get the size of the series
+    size_t size() const;
+};
+
+#endif //SERIES_H

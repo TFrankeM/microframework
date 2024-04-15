@@ -1,10 +1,11 @@
-# Projeto A1: Relatório de Modelagem para Framework de Desenvolvimento de Pipelines de Dados
+# Projeto A1: Modelagem de um Framework de Desenvolvimento de Pipelines de Dados
 
 ### Computação Escalável
 
 
 > ## Grupo
 > 
+> - Dávila Meireles
 > - Dominique de Vargas de Azevedo
 > - Lívia Verly
 > - Pedro Thomaz Conzatti Martins

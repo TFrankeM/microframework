@@ -1,31 +1,35 @@
 #include "Series.h"
+#include <stdexcept>
 
-namespace framework
-{
-    namespace dataframe
-    {
-        template <typename T>
-        Series<T>::Series(const vector<T> &data)
-            : data(data)
-        {
-        }
+/**
+ * @brief Adds a new element to the series.
+ * 
+ * @param value The element to add.
+ */
+void Series::add(const any& value) {
+    data.push_back(value);
+}
 
-        template <typename T>
-        Series<T>::Series(const Series<T> &other)
-            : data(other.data)
-        {
-        }
-
-        template <typename T>
-        T &Series<T>::operator[](size_t index)
-        {
-            return data[index];
-        }
-
-        template <typename T>
-        const T &Series<T>::operator[](size_t index) const
-        {
-            return data[index];
-        }
+/**
+ * @brief Retrieves an element at a specific index.
+ * 
+ * @param index The index of the element to retrieve.
+ * @return any The element at the specified index.
+ */
+any Series::get(int index) const {
+    if (index < 0 || index >= data.size()) {
+        throw std::out_of_range("Index out of range");
     }
+    return data[index];
+}
+
+// ... Other Series methods ...
+
+/**
+ * @brief Gets the size of the series.
+ * 
+ * @return size_t The number of elements in the series.
+ */
+size_t Series::size() const {
+    return data.size();
 }
