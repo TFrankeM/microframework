@@ -2,8 +2,7 @@ from dateutil.relativedelta import relativedelta
 from typing import List, Dict, Any
 import datetime
 import random
-import json
-
+import csv
 
 def generate_random_date(start: datetime = datetime.datetime(2020, 1, 1), end: datetime = datetime.datetime.now()) -> str:
     """
@@ -20,9 +19,9 @@ def generate_random_date(start: datetime = datetime.datetime(2020, 1, 1), end: d
     return start + (end - start) * random.random()
 
 
-def save_logs_to_file(spreadsheets: Dict[str, List[Dict[str, Any]]], filename: str) -> None:
+def save_logs_to_csv(spreadsheets: Dict[str, List[Dict[str, Any]]], filename: str) -> None:
     """
-    Save a list of log entries to a TXT file.
+    Save a list of log entries to a CSV file.
 
     Parameters:
         spreadsheets (Dict[str, List[Dict[str, Any]]]): The list of log entries to save.
@@ -32,10 +31,32 @@ def save_logs_to_file(spreadsheets: Dict[str, List[Dict[str, Any]]], filename: s
         None
     """
 
-    with open(filename, "w") as f:
-        for data_type in spreadsheets:
-            for entry in spreadsheets[data_type]:
-                f.write(json.dumps({data_type: entry}) + "\n")
+    with open(filename, "w", newline="") as csvfile:
+        writer = csv.writer(csvfile)
+        
+        # Write users section
+        writer.writerow(["users"])
+        writer.writerow(["user_id", "name", "surname", "address", "registration_date", "birthday"])
+        for entry in spreadsheets["users"]:
+            writer.writerow([entry.get("user_id", ""), entry.get("name", ""), entry.get("surname", ""), entry.get("address", ""), entry.get("registration_date", ""), entry.get("birthday", "")])
+        
+        # Write products section
+        writer.writerow(["products"])
+        writer.writerow(["product_id", "name", "image", "description", "price"])
+        for entry in spreadsheets["products"]:
+            writer.writerow([entry.get("product_id", ""), entry.get("name", ""), entry.get("image", ""), entry.get("description", ""), entry.get("price", "")])
+        
+        # Write inventory section
+        writer.writerow(["inventory"])
+        writer.writerow(["product_id", "quantity"])
+        for entry in spreadsheets["inventory"]:
+            writer.writerow([entry.get("product_id", ""), entry.get("quantity", "")])
+        
+        # Write orders section
+        writer.writerow(["orders"])
+        writer.writerow(["user_id", "product_id", "quantity", "creation_date", "payment_date", "delivery_date"])
+        for entry in spreadsheets["orders"]:
+            writer.writerow([entry.get("user_id", ""), entry.get("product_id", ""), entry.get("quantity", ""), entry.get("creation_date", ""), entry.get("payment_date", ""), entry.get("delivery_date", "")])
 
 
 def mock_contaverde_data(num_spreadsheets: int) -> Dict[str, List[Dict[str, Any]]]:
@@ -119,8 +140,6 @@ def mock_contaverde_data(num_spreadsheets: int) -> Dict[str, List[Dict[str, Any]
 if __name__ == "__main__":
     # Mock data generation
     contaverde_data = mock_contaverde_data(num_spreadsheets=10)
-    #print(json.dumps(contaverde_data, indent=2))
     
-    # Save the spreadsheets to a file
-    save_logs_to_file(contaverde_data, "contaverde_spreadsheets.txt")
-    
+    # Save the spreadsheets to a CSV file
+    save_logs_to_csv(contaverde_data, "contaverde_spreadsheets.csv")

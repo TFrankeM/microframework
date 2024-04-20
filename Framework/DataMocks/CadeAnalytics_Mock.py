@@ -19,9 +19,9 @@ def generate_random_date(start: datetime = datetime.datetime(2020, 1, 1), end: d
     return start + (end - start) * random.random()
 
 
-def save_logs_to_file(requests: List[Dict[str, List[Dict[str, Any]]]], filename: str) -> None:
+def save_logs_to_http_requests(requests: List[Dict[str, List[Dict[str, Any]]]], filename: str) -> None:
     """
-    Save a list of log entries to a TXT file.
+    Save a list of log entries as simulated HTTP requests to a TXT file.
 
     Parameters:
         requests (List[Dict[str, List[Dict[str, Any]]]]): The list of log entries to save.
@@ -33,7 +33,14 @@ def save_logs_to_file(requests: List[Dict[str, List[Dict[str, Any]]]], filename:
 
     with open(filename, "w") as f:
         for request in requests:
-            f.write(json.dumps(request) + '\n')
+            for event in request["request"]:
+                date = event.get("date", "") 
+                f.write("POST /log HTTP/1.1\n")
+                f.write("Host: localhost:8000\n")
+                f.write(f"Date: {date}\n")  
+                f.write("Content-Type: application/json\n")
+                f.write(f"Content-Length: {len(json.dumps(event))}\n\n")
+                f.write(json.dumps(event) + '\n\n')
 
 
 def mock_cadeanalytics_events(num_requests: int) -> List[Dict[str, List[Dict[str, Any]]]]:
@@ -85,7 +92,7 @@ def mock_cadeanalytics_events(num_requests: int) -> List[Dict[str, List[Dict[str
 if __name__ == "__main__":
     # Mock data generation
     cadeanalytics_requests = mock_cadeanalytics_events(num_requests=10)
-    print(json.dumps(cadeanalytics_requests, indent=2))
+    #print(json.dumps(cadeanalytics_requests, indent=2))
 
-    # Save the logs to a file
-    save_logs_to_file(cadeanalytics_requests, "cadeanalytics_events.txt")
+    # Save the logs to a file in simulated HTTP request format
+    save_logs_to_http_requests(cadeanalytics_requests, "cadeanalytics_events.txt")
