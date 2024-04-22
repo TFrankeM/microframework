@@ -27,7 +27,7 @@ public:
     Series getColumn(const std::string& columnName);
 
     // Retrieves a row by its index
-    std::vector<any> getRow(int index);
+    std::vector<any> getRow(int index) const;
 
     // Filters columns in the DataFrame based on a predicate function
     DataFrame filter(std::function<bool(const Series&)> predicate);

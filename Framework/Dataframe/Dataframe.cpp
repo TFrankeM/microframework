@@ -53,7 +53,7 @@ Series DataFrame::getColumn(const std::string& columnName) {
  * @param index The index of the row to retrieve.
  * @return std::vector<any> The data in the row.
  */
-std::vector<any> DataFrame::getRow(int index) {
+std::vector<any> DataFrame::getRow(int index) const {
     std::vector<any> row;
     for (auto& col : columns) {
         row.push_back(col.get(index));
