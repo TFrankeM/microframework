@@ -1,6 +1,9 @@
+#include "../Dataframe/Series.cpp"
+#include "../Dataframe/Dataframe.cpp"
 #include "Repository.h"
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <string>
 #include <vector>
 #include <unordered_set>
@@ -10,7 +13,7 @@ using any = std::variant<int, float, double, std::string>;
 
 Repository::Repository(const std::string& dirPath) : directoryPath(dirPath) {}
 
-DataFrame Repository::loadData_txt() {
+DataFrame Repository::load_txt() {
     std::ifstream file(directoryPath);
     if (!file.is_open()) {
         std::cerr << "Failed to open file for reading: " << directoryPath<< std::endl;
@@ -109,30 +112,208 @@ DataFrame Repository::loadData_txt() {
     return dataframe;
 }
 
-// For test
+DataFrame Repository::load_httpRequest() {
+    std::ifstream file(directoryPath);
+    if (!file.is_open()) {
+        std::cerr << "Failed to open file for reading: " << directoryPath<< std::endl;
+        // Returning an empty DataFrame
+        return DataFrame();
+    }
+
+    DataFrame dataframe;
+    // Simulation of HTTP requests only have these columns
+    dataframe.columnNames = {"post", "host", "date", "content_type", "content_lenght", "body"};
+
+    // Initialize dataframe with a series to put the rows
+    for (size_t i = 0; i < dataframe.columnNames.size(); ++i) {
+        Series columnData;
+        dataframe.columns.push_back(columnData);
+    }
+
+    std::vector<any> values(dataframe.columnNames.size());
+
+    int i = 0;
+
+    std::string line;
+    while (std::getline(file, line)) {
+        if (i < dataframe.columnNames.size()) {
+            if (line.find("POST") != std::string::npos) {
+                values[i] = line;
+                i = 1;
+            } else if (line.find(":") != std::string::npos && i != dataframe.columnNames.size()-1) {
+                values[i] = line.substr(line.find(": ") + 2);
+                i++;
+            } else if (i == dataframe.columnNames.size()-1 && !line.empty()) {
+                values[i] = line;
+
+                dataframe.addRow(values);
+
+                i = 0;
+            }
+        }
+    }
+
+    file.close();
+
+    return dataframe;
+}
+
+std::vector<DataFrame> Repository::load_csv() {
+    std::ifstream file(directoryPath);
+    if (!file.is_open()) {
+        std::cerr << "Failed to open file for reading: " << directoryPath<< std::endl;
+        // Returning an empty vector of DataFrames
+        return std::vector<DataFrame>();
+    }
+
+    std::vector<DataFrame> list;
+    DataFrame dataframe;
+    std::string line;
+    int i = 1;
+
+    while (std::getline(file, line)) {
+        // If the row contains only one word, create a new DataFrame
+        if (line.find(',') == std::string::npos) {
+            DataFrame dataframe;
+            list.push_back(dataframe);
+            i = 1;
+        } else if (i==1){
+            // i = 1 means it's a row of column names
+            std::vector<std::string> columns;
+            size_t start, end;
+            size_t pos = 0;
+
+            // Takes the first value for the columnNames list
+            start = 0;
+            end = line.find(",");
+            std::string firstColumnName = line.substr(start, end);
+
+            columns.push_back(firstColumnName);
+
+            // Takes the other values for the columnNames list
+            while (pos != std::string::npos) {
+                start = line.find(",", pos);
+                end = line.find(",", start + 1);
+
+                std::string columnName = line.substr(start + 1, end - start - 1);
+
+                if (start != std::string::npos) {
+                    columns.push_back(columnName);
+                }
+                pos = end; // Move pos to the end of the value
+            }
+
+            // Set the columns to the DataFrame
+            dataframe.columnNames = columns;
+            for (size_t i = 0; i < dataframe.columnNames.size(); ++i) {
+                Series columnData;
+                dataframe.columns.push_back(columnData);
+            }
+
+            i = 2;
+        } else {
+            // Add new row for every row that's not a column name or a word
+            std::vector<any> newRow;
+            size_t start, end, v1, v2;
+            size_t pos = 0;
+
+            start = 0;
+            end = line.find(",");
+            v1 = line.find("\"", start + 1);
+            v2 = line.find("\"", v1 + 1);
+
+            if (v1 < end && v2 > end) {
+                end = v2;
+            }
+
+            std::string firstColumnName = line.substr(start, end);
+
+            newRow.push_back(firstColumnName);
+
+            while (pos != std::string::npos) {
+                start = line.find(",", pos);
+                end = line.find(",", start + 1);
+                v1 = line.find("\"", start + 1);
+                v2 = line.find("\"", v1 + 1);
+
+                if (v1 < end && v2 > end) {
+                    end = v2;
+                }
+                std::string columnName = line.substr(start + 1, end - start - 1);
+
+                if (start != std::string::npos) {
+                    newRow.push_back(columnName);
+                }
+                pos = end;
+            }
+
+            dataframe.addRow(newRow);
+        }
+
+    }
+
+    file.close();
+
+    return list;
+}
+
+// // For test
 // int main() {
 //     // Creating a Repository with "datacat_logs.txt" file
-//     Repository repository("datacat_logs.txt");
+//     Repository repository1("datacat_logs.txt");
 
 //     // Loading datacat_logs.txt file in a DataFrame
-//     DataFrame data = repository.loadData_txt();
+//     DataFrame data1 = repository1.load_txt();
+
+//     // Creating a Repository with "cadeanalytics_events.txt" file
+//     Repository repository2("cadeanalytics_events.txt");
+
+//     // Loading cadeanalytics_events.txt file in a DataFrame
+//     DataFrame data2 = repository2.load_httpRequest();
 
 //     // Print columns
 //     std::cout << "Columns: ";
-//     for (const auto& name : data.columnNames) {
+//     for (const auto& name : data1.columnNames) {
 //         std::cout << name << "\t";
 //     }
 //     std::cout << std::endl;
 
 //     // Print dataframe
-//     for (int i = 0; i < data.columns[0].size(); ++i) {
-//         for (const auto& column : data.columns) {
-//             const any& data = column.get(i);
+//     for (int i = 0; i < data1.columns[0].size(); ++i) {
+//         for (const auto& column : data1.columns) {
+//             const any& data1 = column.get(i);
 //             std::visit([&](const auto& value) {
 //                 std::cout << value << "\t";
-//             }, data);
+//             }, data1);
 //         }
 //         std::cout << std::endl;
+//     }
+
+//     // Creating a Repository with "contaverde_spreadsheets.csv" file
+//     Repository repository3("contaverde_spreadsheets.csv");
+
+//     // Loading contaverde_spreadsheets.csv file in a DataFrame
+//     std::vector<DataFrame> data3 = repository3.load_csv();
+
+//     // Print each DataFrame
+//     for (const auto& dataframe : data3) {
+//         std::cout << "DataFrame:\n";
+//         std::cout << "Column names: ";
+
+//         for (const auto& columnName : dataframe.columnNames) {
+//             std::cout << columnName << " ";
+//         }
+//         std::cout << "\n\n";
+
+//         for (int i = 0; i < dataframe.columns[0].size(); ++i) {
+//             for (const auto& column : dataframe.columns) {
+//                 const any& dataframe = column.get(i);
+//                 std::visit([&](const auto& value) {
+//                     std::cout << value << "\t";
+//                 }, dataframe);
+//             }
+//             std::cout << std::endl;
+//         }
 //     }
 
 //     return 0;
