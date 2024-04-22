@@ -2,16 +2,19 @@
 #define REPOSITORY_H
 
 #include <string>
+#include "../Dataframe/Dataframe.h"
+#include "Extractor.h"
 
 class Repository {
 private:
-    std::string directoryPath;
+    Extractor* extractor;
+    DataFrame dataframe;
 
 public:
-    Repository(const std::string& dirPath);
+    Repository(Extractor* extractor) : extractor(extractor) {};
 
-    DataFrame loadData_txt();
-    //void saveData(DataFrame& dataframe);
+    void loadData();
+    DataFrame getData();
 };
 
 #endif // REPOSITORY_H
