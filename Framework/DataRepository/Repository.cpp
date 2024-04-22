@@ -169,13 +169,15 @@ std::vector<DataFrame> Repository::load_csv() {
     std::vector<DataFrame> list;
     DataFrame dataframe;
     std::string line;
-    int i = 1;
+    int i = 0; // State variable to track where we are in the CSV parsing process
 
     while (std::getline(file, line)) {
         // If the row contains only one word, create a new DataFrame
         if (line.find(',') == std::string::npos) {
-            DataFrame dataframe;
-            list.push_back(dataframe);
+            if (i != 0) {
+                list.push_back(dataframe);
+            }
+            dataframe = DataFrame(); // Recriar o DataFrame (ou usar um método reset() se implementado)
             i = 1;
         } else if (i==1){
             // i = 1 means it's a row of column names
@@ -226,9 +228,9 @@ std::vector<DataFrame> Repository::load_csv() {
                 end = v2;
             }
 
-            std::string firstColumnName = line.substr(start, end);
+            std::string firstColumnValue = line.substr(start, end);
 
-            newRow.push_back(firstColumnName);
+            newRow.push_back(firstColumnValue);
 
             while (pos != std::string::npos) {
                 start = line.find(",", pos);
@@ -239,22 +241,46 @@ std::vector<DataFrame> Repository::load_csv() {
                 if (v1 < end && v2 > end) {
                     end = v2;
                 }
-                std::string columnName = line.substr(start + 1, end - start - 1);
+                std::string columnValue = line.substr(start + 1, end - start - 1);
 
                 if (start != std::string::npos) {
-                    newRow.push_back(columnName);
+                    newRow.push_back(columnValue);
                 }
                 pos = end;
             }
 
             dataframe.addRow(newRow);
         }
+    }
 
+    // Push back the last dataframe
+    if (!dataframe.columnNames.empty()) {
+        list.push_back(dataframe);
     }
 
     file.close();
 
     return list;
+}
+
+void printDataFrame(DataFrame& dataframe) {
+    // Print columns
+    std::cout << "Columns: ";
+    for (const auto& name : dataframe.columnNames) {
+        std::cout << name << "\t";
+    }
+    std::cout << std::endl;
+
+    // Print dataframe
+    for (int i = 0; i < dataframe.columns[0].size(); ++i) {
+        for (const auto& column : dataframe.columns) {
+            const any& dataframe = column.get(i);
+            std::visit([&](const auto& value) {
+                std::cout << value << "\t";
+            }, dataframe);
+        }
+        std::cout << std::endl;
+    }
 }
 
 // // For test
@@ -271,23 +297,9 @@ std::vector<DataFrame> Repository::load_csv() {
 //     // Loading cadeanalytics_events.txt file in a DataFrame
 //     DataFrame data2 = repository2.load_httpRequest();
 
-//     // Print columns
-//     std::cout << "Columns: ";
-//     for (const auto& name : data1.columnNames) {
-//         std::cout << name << "\t";
-//     }
-//     std::cout << std::endl;
-
-//     // Print dataframe
-//     for (int i = 0; i < data1.columns[0].size(); ++i) {
-//         for (const auto& column : data1.columns) {
-//             const any& data1 = column.get(i);
-//             std::visit([&](const auto& value) {
-//                 std::cout << value << "\t";
-//             }, data1);
-//         }
-//         std::cout << std::endl;
-//     }
+//     // Print DataFrames
+//     printDataFrame(data1);
+//     printDataFrame(data2);
 
 //     // Creating a Repository with "contaverde_spreadsheets.csv" file
 //     Repository repository3("contaverde_spreadsheets.csv");
@@ -296,24 +308,10 @@ std::vector<DataFrame> Repository::load_csv() {
 //     std::vector<DataFrame> data3 = repository3.load_csv();
 
 //     // Print each DataFrame
-//     for (const auto& dataframe : data3) {
+//     for (auto& dataframe : data3) {
 //         std::cout << "DataFrame:\n";
-//         std::cout << "Column names: ";
-
-//         for (const auto& columnName : dataframe.columnNames) {
-//             std::cout << columnName << " ";
-//         }
-//         std::cout << "\n\n";
-
-//         for (int i = 0; i < dataframe.columns[0].size(); ++i) {
-//             for (const auto& column : dataframe.columns) {
-//                 const any& dataframe = column.get(i);
-//                 std::visit([&](const auto& value) {
-//                     std::cout << value << "\t";
-//                 }, dataframe);
-//             }
-//             std::cout << std::endl;
-//         }
+//         printDataFrame(dataframe);
+//         std::cout << "\n";
 //     }
 
 //     return 0;

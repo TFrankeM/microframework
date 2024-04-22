@@ -28,7 +28,8 @@ public:
     //Loads data from a csv file and returns a vector of DataFrames.
     std::vector<DataFrame> load_csv();
 
-    //void saveData(DataFrame& dataframe);
+    //Print data from a DataFrame on the terminal
+    void printDataFrame(DataFrame& dataframe);
 };
 
 #endif // REPOSITORY_H
