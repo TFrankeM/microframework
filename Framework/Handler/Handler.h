@@ -35,7 +35,20 @@ public:
 enum class Aggregation
 {
     SUM,
-    AVG
+    AVG,
+    MAX,
+    MIN,
+    COUNT
+};
+
+class MeasureHandler : public Handler
+{
+private:
+    Aggregation aggregation;
+
+public:
+    MeasureHandler(Aggregation aggregation);
+    vector<DataFrame> process(const vector<DataFrame> &input) override;
 };
 
 class GroupByHandler : public Handler
@@ -59,9 +72,19 @@ public:
     vector<DataFrame> process(const vector<DataFrame> &input) override;
 };
 
-class CountHandler : public Handler
+class ConcatHandler : public Handler
 {
 public:
+    vector<DataFrame> process(const vector<DataFrame> &input) override;
+};
+
+class SortHandler : public Handler
+{
+private:
+    std::string sortColumn;
+
+public:
+    SortHandler(const std::string &sortColumn);
     vector<DataFrame> process(const vector<DataFrame> &input) override;
 };
 

@@ -1,6 +1,8 @@
 #include "Handler.h"
+#include "../Dataframe/Series.h"
 #include <any>
 #include <vector>
+#include <map>
 
 FilterHandler::FilterHandler(const std::string &filterColumn, const std::string &filterValue)
     : filterColumn(filterColumn), filterValue(filterValue) {}
@@ -36,11 +38,114 @@ vector<DataFrame> FilterHandler::process(const vector<DataFrame> &input)
     return outputVector;
 }
 
+MeasureHandler::MeasureHandler(Aggregation aggregation)
+    : aggregation(aggregation) {}
+
+vector<DataFrame> MeasureHandler::process(const vector<DataFrame> &input)
+{
+    DataFrame output;
+
+    if (aggregation == Aggregation::COUNT)
+    {
+        output.columnNames.push_back("count");
+        output.columns.push_back(Series());
+        output.columns[0].add(static_cast<int>(input[0].columns[0].size()));
+
+        vector<DataFrame> outputVector;
+        outputVector.push_back(output);
+        return outputVector;
+    }
+
+    output.columnNames = input[0].columnNames;
+    for (int i = 0; i < input[0].columnNames.size(); i++)
+    {
+        output.columns.push_back(Series());
+    }
+
+    vector<any> row;
+    for (int i = 0; i < input[0].columnNames.size(); i++)
+    {
+        any measure = input[0].columns[i].get(0);
+        for (int j = 1; j < input[0].columns[0].size(); j++)
+        {
+            switch (aggregation)
+            {
+            case Aggregation::SUM:
+            case Aggregation::AVG:
+                measure = sum(measure, input[0].columns[i].get(j));
+                break;
+            case Aggregation::MAX:
+                if (measure < input[0].columns[i].get(j))
+                {
+                    measure = input[0].columns[i].get(j);
+                }
+                break;
+            case Aggregation::MIN:
+                if (measure > input[0].columns[i].get(j))
+                {
+                    measure = input[0].columns[i].get(j);
+                }
+                break;
+            default:
+                break;
+            }
+        }
+
+        if (aggregation == Aggregation::AVG)
+        {
+            measure = std::any_cast<double>(measure) / input[0].columns[0].size();
+        }
+
+        row.push_back(measure);
+    }
+
+    output.addRow(row);
+
+    vector<DataFrame> outputVector;
+    outputVector.push_back(output);
+    return outputVector;
+}
+
 GroupByHandler::GroupByHandler(const std::string &groupByColumn, Aggregation aggregation)
     : groupByColumn(groupByColumn), aggregation(aggregation) {}
 
-vector<DataFrame> GroupByHandler::process(const vector<DataFrame> &input) {
+any sum(const any &a, const any &b)
+{
+    if (std::holds_alternative<int>(a) && std::holds_alternative<int>(b))
+    {
+        return std::any_cast<int>(a) + std::any_cast<int>(b);
+    }
+    else if (std::holds_alternative<float>(a) && std::holds_alternative<float>(b))
+    {
+        return std::any_cast<float>(a) + std::any_cast<float>(b);
+    }
+    else if (std::holds_alternative<double>(a) && std::holds_alternative<double>(b))
+    {
+        return std::any_cast<double>(a) + std::any_cast<double>(b);
+    }
+
+    return 0;
+}
+
+vector<DataFrame> GroupByHandler::process(const vector<DataFrame> &input)
+{
     DataFrame output;
+    if (aggregation == Aggregation::COUNT)
+    {
+        output.columnNames.push_back(groupByColumn);
+        output.columnNames.push_back("count");
+        output.columns.push_back(Series());
+        output.columns.push_back(Series());
+    }
+    else
+    {
+        output.columnNames = input[0].columnNames;
+        for (int i = 0; i < input[0].columnNames.size(); i++)
+        {
+            output.columns.push_back(Series());
+        }
+    }
+
     int columnIndex = -1;
     for (int i = 0; i < input[0].columnNames.size(); i++)
     {
@@ -51,54 +156,76 @@ vector<DataFrame> GroupByHandler::process(const vector<DataFrame> &input) {
         }
     }
 
-    std::vector<std::string> uniqueValues;
-    for (const auto &df : input)
+    std::map<any, std::vector<any>> groups;
+    std::map<any, int> groupCounts;
+    for (int i = 0; i < input[0].columns[0].size(); i++)
     {
-        for (int i = 0; i < df.columns[0].size(); i++)
+        std::vector<any> row = input[0].getRow(i);
+        any groupByValue = row[columnIndex];
+        if (groups.find(groupByValue) == groups.end())
         {
-            std::string value = std::any_cast<std::string>(df.getRow(i)[columnIndex]);
-            if (std::find(uniqueValues.begin(), uniqueValues.end(), value) == uniqueValues.end())
-            {
-                uniqueValues.push_back(value);
-            }
+            groups[groupByValue] = std::vector<any>(output.columnNames.size(), 0);
+            groupCounts[groupByValue] = 0;
         }
-    }
 
-    for (const auto &value : uniqueValues)
-    {
-        std::vector<any> row;
-        row.push_back(value);
-        for (int i = 1; i < input[0].columnNames.size(); i++)
+        for (int j = 0; j < row.size(); j++)
         {
-            if (i == columnIndex)
+            if (j == columnIndex)
             {
                 continue;
             }
 
-            double sum = 0;
-            int count = 0;
-            for (const auto &df : input)
+            switch (aggregation)
             {
-                for (int j = 0; j < df.columns[0].size(); j++)
+            case Aggregation::AVG:
+                groups[groupByValue][j] = sum(groups[groupByValue][j], row[j]);
+                groupCounts[groupByValue]++;
+                break;
+            case Aggregation::SUM:
+                groups[groupByValue][j] = sum(groups[groupByValue][j], row[j]);
+                break;
+            case Aggregation::MAX:
+                if (groups[groupByValue][j] < row[j])
                 {
-                    if (std::any_cast<std::string>(df.getRow(j)[columnIndex]) == value)
-                    {
-                        sum += std::any_cast<double>(df.getRow(j)[i]);
-                        count++;
-                    }
+                    groups[groupByValue][j] = row[j];
                 }
-            }
+                break;
+            case Aggregation::MIN:
+                if (groups[groupByValue][j] > row[j])
+                {
+                    groups[groupByValue][j] = row[j];
+                }
+                break;
+            case Aggregation::COUNT:
+                groupCounts[groupByValue]++;
+                break;
 
-            if (aggregation == Aggregation::SUM)
-            {
-                row.push_back(sum);
-            }
-            else if (aggregation == Aggregation::AVG)
-            {
-                row.push_back(sum / count);
+            default:
+                break;
             }
         }
-        output.addRow(row);
+    }
+
+    for (const auto &group : groups)
+    {
+        if (aggregation == Aggregation::COUNT)
+        {
+            output.columns[0].add(group.first);
+            output.columns[1].add(groupCounts[group.first]);
+            continue;
+        }
+
+        for (int i = 0; i < group.second.size(); i++)
+        {
+            if (aggregation == Aggregation::AVG)
+            {
+                output.columns[i].add(std::any_cast<double>(group.second[i]) / groupCounts[group.first]);
+            }
+            else
+            {
+                output.columns[i].add(group.second[i]);
+            }
+        }
     }
 
     vector<DataFrame> outputVector;
@@ -109,7 +236,8 @@ vector<DataFrame> GroupByHandler::process(const vector<DataFrame> &input) {
 JoinHandler::JoinHandler(const std::string &joinColumn)
     : joinColumn(joinColumn) {}
 
-vector<DataFrame> JoinHandler::process(const vector<DataFrame> &input) {
+vector<DataFrame> JoinHandler::process(const vector<DataFrame> &input)
+{
     DataFrame output;
     int columnIndex = -1;
     for (int i = 0; i < input[0].columnNames.size(); i++)
@@ -135,25 +263,61 @@ vector<DataFrame> JoinHandler::process(const vector<DataFrame> &input) {
     return outputVector;
 }
 
-vector<DataFrame> CountHandler::process(const vector<DataFrame> &input) {
+vector<DataFrame> ConcatHandler::process(const vector<DataFrame> &input)
+{
     DataFrame output;
-    std::vector<std::string> uniqueValues;
     for (const auto &df : input)
     {
         for (int i = 0; i < df.columns[0].size(); i++)
         {
-            std::string value = std::any_cast<std::string>(df.getRow(i)[0]);
-            if (std::find(uniqueValues.begin(), uniqueValues.end(), value) == uniqueValues.end())
-            {
-                uniqueValues.push_back(value);
-            }
+            std::vector<any> row = df.getRow(i);
+            output.addRow(row);
         }
     }
 
-    std::vector<any> row;
-    row.push_back("Count");
-    row.push_back(static_cast<int>(uniqueValues.size()));
-    output.addRow(row);
+    vector<DataFrame> outputVector;
+    outputVector.push_back(output);
+    return outputVector;
+}
+
+SortHandler::SortHandler(const std::string &sortColumn)
+    : sortColumn(sortColumn) {}
+
+vector<DataFrame> SortHandler::process(const vector<DataFrame> &input)
+{
+    DataFrame output;
+    int columnIndex = -1;
+    for (int i = 0; i < input[0].columnNames.size(); i++)
+    {
+        if (input[0].columnNames[i] == sortColumn)
+        {
+            columnIndex = i;
+            break;
+        }
+    }
+
+    // Insertion sort
+    for (int i = 0; i < input[0].columns[0].size(); i++)
+    {
+        std::vector<any> row = input[0].getRow(i);
+        // Binary search to find the correct position
+        int low = 0;
+        int high = output.columns[0].size() - 1;
+        while (low <= high)
+        {
+            int mid = low + (high - low) / 2;
+            if (output.columns[columnIndex].get(mid) < row[columnIndex])
+            {
+                low = mid + 1;
+            }
+            else
+            {
+                high = mid - 1;
+            }
+        }
+
+        output.insertRow(low, row);
+    }
 
     vector<DataFrame> outputVector;
     outputVector.push_back(output);
