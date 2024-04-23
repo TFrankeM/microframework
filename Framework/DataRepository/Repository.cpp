@@ -1,11 +1,11 @@
 #include "Repository.h"
 
-void Repository::loadData()
+void Repository::extractData()
 {
-    dataframe = extractor->extractData();
+    data = extractor->extractData();
 }
 
-DataFrame Repository::getData()
+DataFrame Repository::getData() const
 {
-    return dataframe;
+    return data;
 }

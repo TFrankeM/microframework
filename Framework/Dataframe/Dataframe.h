@@ -31,6 +31,9 @@ public:
 
     // Filters columns in the DataFrame based on a predicate function
     DataFrame filter(std::function<bool(const Series&)> predicate);
+
+    // Prints the DataFrame to the console
+    void print() const;
 };
 
 #endif //DATAFRAME_H

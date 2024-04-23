@@ -14,16 +14,25 @@ public:
     virtual DataFrame extractData() = 0;
 };
 
+enum class DataFormat
+{
+    CSV,
+    JSON
+};
+
 class FileExtractor : public Extractor
 {
 protected:
     string path;
+    DataFormat format;
     string separator;
 
 public:
-    FileExtractor(const string &filePath, const string &separator = ",") : path(filePath), separator(separator) {}
+    FileExtractor(const string &filePath, DataFormat format, const string &separator = ",")
+        : path(filePath), format(format), separator(separator) {}
 
-    DataFrame extractFromFile(const std::string &filePath);
+    DataFrame extractFromCsv(const std::string &filePath);
+    DataFrame extractFromJson(const std::string &filePath);
     DataFrame extractData() override;
 };
 
@@ -33,8 +42,8 @@ private:
     string extension;
 
 public:
-    DirectoryExtractor(const std::string &dirPath, const std::string &separator = ",", const std::string &extension = ".csv")
-        : FileExtractor(dirPath, separator), extension(extension) {}
+    DirectoryExtractor(const string &dirPath, DataFormat format, const string &extension, const string &separator = ",")
+        : FileExtractor(dirPath, format, separator), extension(extension) {}
 
     DataFrame extractData() override;
 };
