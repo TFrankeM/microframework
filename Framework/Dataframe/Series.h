@@ -20,6 +20,9 @@ public:
     // Adds a new element to the series
     void add(const any& value);
 
+    // Inserts a new element at a specific index
+    void insert(int index, const any& value);
+
     // Retrieves an element at a specific index
     any get(int index) const;
 

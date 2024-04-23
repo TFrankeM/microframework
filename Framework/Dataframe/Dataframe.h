@@ -29,6 +29,9 @@ public:
     // Retrieves a row by its index
     std::vector<any> getRow(int index) const;
 
+    // Inserts a new row at the specified index
+    void insertRow(int index, const std::vector<any>& rowData);
+
     // Filters columns in the DataFrame based on a predicate function
     DataFrame filter(std::function<bool(const Series&)> predicate);
 

@@ -11,6 +11,19 @@ void Series::add(const any& value) {
 }
 
 /**
+ * @brief Inserts a new element at a specific index.
+ * 
+ * @param index The index at which to insert the element.
+ * @param value The element to insert.
+ */
+void Series::insert(int index, const any& value) {
+    if (index < 0 || index > data.size()) {
+        throw std::out_of_range("Index out of range");
+    }
+    data.insert(data.begin() + index, value);
+}
+
+/**
  * @brief Retrieves an element at a specific index.
  * 
  * @param index The index of the element to retrieve.

@@ -73,6 +73,25 @@ std::vector<any> DataFrame::getRow(int index) const
 }
 
 /**
+ * @brief Inserts a new row at the specified index.
+ *
+ * @param index The index at which to insert the new row.
+ * @param rowData The data for the new row.
+ */
+void DataFrame::insertRow(int index, const std::vector<any> &rowData)
+{
+    if (rowData.size() != columns.size())
+    {
+        throw std::invalid_argument("Row size does not match number of columns.");
+    }
+
+    for (size_t i = 0; i < rowData.size(); ++i)
+    {
+        columns[i].insert(index, rowData[i]);
+    }
+}
+
+/**
  * @brief Filters columns in the DataFrame based on a predicate function.
  *
  * @param predicate The function used to determine which columns to include.
