@@ -1,8 +1,8 @@
 #include "Trigger.h"
 
 // Constructor for the abstract Trigger class.
-Trigger::Trigger(Queue *queue, std::function<void()> callback)
-    : outputQueue(queue), callback(callback)
+Trigger::Trigger(vector<Repository *> repositories, vector<vector<Queue *>> inputQueues)
+    : repositories(repositories), inputQueues(inputQueues)
 {
 }
 
@@ -13,6 +13,31 @@ Trigger::~Trigger()
         triggerThread.join();
 }
 
+void Trigger::insertIntoQueues(Repository *repository, vector<Queue *> queues)
+{
+    repository->extractData();
+    vector<DataFrame> data = repository->getData();
+    for (int i = 0; i < data.size(); i++)
+    {
+        queues[i]->enqueue(data[i]);
+    }
+}
+
+void Trigger::insertData()
+{
+    vector<std::thread> threads;
+    vector<DataFrame> data = repositories[0]->getData();
+    for (int i = 0; i < inputQueues.size(); i++)
+    {
+        threads.push_back(std::thread(&Trigger::insertIntoQueues, this, repositories[i], inputQueues[i]));
+    }
+
+    for (auto &thread : threads)
+    {
+        thread.join();
+    }
+}
+
 // Starts the trigger thread to run asynchronously.
 void Trigger::start()
 {
@@ -20,8 +45,8 @@ void Trigger::start()
 }
 
 // Constructor for TimerTrigger. Initializes the interval and callback.
-TimerTrigger::TimerTrigger(Queue *queue, std::function<void()> callback, long interval)
-    : Trigger(queue, callback), interval(interval)
+TimerTrigger::TimerTrigger(vector<Repository *> repositories, vector<vector<Queue *>> inputQueues, long interval)
+    : Trigger(repositories, inputQueues), interval(interval)
 {
 }
 
@@ -30,7 +55,7 @@ void TimerTrigger::fire()
 {
     while (active)
     {
-        callback();
+        insertData();
         std::this_thread::sleep_for(std::chrono::milliseconds(interval));
     }
 }
@@ -50,12 +75,12 @@ void TimerTrigger::stop()
         triggerThread.join();
 }
 
-RequestTrigger::RequestTrigger(Queue *queue, std::function<void()> callback)
-    : Trigger(queue, callback)
+RequestTrigger::RequestTrigger(vector<Repository *> repositories, vector<vector<Queue *>> inputQueues)
+    : Trigger(repositories, inputQueues)
 {
 }
 
 void RequestTrigger::fire()
 {
-    callback();
+    insertData();
 }

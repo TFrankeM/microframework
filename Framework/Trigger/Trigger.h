@@ -1,10 +1,15 @@
 #ifndef TRIGGER_H
 #define TRIGGER_H
 
+#include "../Queue/Queue.h"
+#include "../DataRepository/Repository.h"
 #include <thread>
 #include <functional>
 #include <chrono>
-#include "../Queue/Queue.h"
+#include <vector>
+#include <thread>
+
+using std::vector;
 
 /**
  * @brief The Trigger class serves as an abstract base for various trigger mechanisms.
@@ -15,15 +20,17 @@ class Trigger
 {
 protected:
     // Queue to hold DataFrames for processing
-    Queue *outputQueue;
+    vector<vector<Queue *>> inputQueues;
+    // Repositories to store processed DataFrames
+    vector<Repository *> repositories;
     // Thread to handle the asynchronous triggering
     std::thread triggerThread;
-    // Callback function to be called on trigger
-    std::function<void()> callback;
 
 public:
-    explicit Trigger(Queue *queue, std::function<void()> callback);
+    explicit Trigger(vector<Repository *> repositories, vector<vector<Queue *>> inputQueues);
     virtual ~Trigger();
+    void insertIntoQueues(Repository *repository, vector<Queue *> queues);
+    void insertData();
     virtual void fire() = 0; // Pure virtual function to be implemented by derived classes
     virtual void start();    // Starts the trigger thread
 };
@@ -42,7 +49,7 @@ private:
     bool active = false;
 
 public:
-    TimerTrigger(Queue *queue, std::function<void()> callback, long interval);
+    TimerTrigger(vector<Repository *> repositories, vector<vector<Queue *>> inputQueues, long interval);
     // Implementation of the fire method for timer-based triggering
     void fire() override;
     void start() override; // Overrides the start method to set the active flag
@@ -57,7 +64,7 @@ public:
 class RequestTrigger : public Trigger
 {
 public:
-    RequestTrigger(Queue *queue, std::function<void()> callback);
+    RequestTrigger(vector<Repository *> repositories, vector<vector<Queue *>> inputQueues);
     // Implementation of the fire method for request-based triggering
     void fire() override;
 };
