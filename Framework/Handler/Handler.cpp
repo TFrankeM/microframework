@@ -3,9 +3,45 @@
 #include <any>
 #include <vector>
 #include <map>
+#include <cmath>
+#include <thread>
 
-FilterHandler::FilterHandler(const std::string &filterColumn, const std::string &filterValue)
-    : filterColumn(filterColumn), filterValue(filterValue) {}
+using std::thread;
+
+Handler::Handler(vector<Queue *> inputQueues, vector<Queue *> outputQueues)
+    : inputQueues(inputQueues), outputQueues(outputQueues) {}
+
+void Handler::run()
+{
+    while (true)
+    {
+        vector<DataFrame> input;
+        for (const auto &queue : inputQueues)
+        {
+            input.push_back(queue->dequeue());
+        }
+
+        vector<DataFrame> output = process(input);
+
+        for (int i = 0; i < output.size(); i++)
+        {
+            outputQueues[i]->enqueue(output[i]);
+        }
+    }
+}
+
+void Handler::runThreads(int numThreads)
+{
+    vector<thread> threads;
+    for (int i = 0; i < numThreads; i++)
+    {
+        threads.push_back(thread([this]()
+                                 { this->run(); }));
+    }
+}
+
+FilterHandler::FilterHandler(vector<Queue *> inputQueues, vector<Queue *> outputQueues, const std::string &filterColumn, const std::string &filterValue)
+    : Handler(inputQueues, outputQueues), filterColumn(filterColumn), filterValue(filterValue) {}
 
 vector<DataFrame> FilterHandler::process(const vector<DataFrame> &input)
 {
@@ -38,8 +74,26 @@ vector<DataFrame> FilterHandler::process(const vector<DataFrame> &input)
     return outputVector;
 }
 
-MeasureHandler::MeasureHandler(Aggregation aggregation)
-    : aggregation(aggregation) {}
+any sum(const any &a, const any &b)
+{
+    if (std::holds_alternative<int>(a) && std::holds_alternative<int>(b))
+    {
+        return std::any_cast<int>(a) + std::any_cast<int>(b);
+    }
+    else if (std::holds_alternative<float>(a) && std::holds_alternative<float>(b))
+    {
+        return std::any_cast<float>(a) + std::any_cast<float>(b);
+    }
+    else if (std::holds_alternative<double>(a) && std::holds_alternative<double>(b))
+    {
+        return std::any_cast<double>(a) + std::any_cast<double>(b);
+    }
+
+    return 0;
+}
+
+MeasureHandler::MeasureHandler(vector<Queue *> inputQueues, vector<Queue *> outputQueues, Aggregation aggregation)
+    : Handler(inputQueues, outputQueues), aggregation(aggregation) {}
 
 vector<DataFrame> MeasureHandler::process(const vector<DataFrame> &input)
 {
@@ -106,26 +160,8 @@ vector<DataFrame> MeasureHandler::process(const vector<DataFrame> &input)
     return outputVector;
 }
 
-GroupByHandler::GroupByHandler(const std::string &groupByColumn, Aggregation aggregation)
-    : groupByColumn(groupByColumn), aggregation(aggregation) {}
-
-any sum(const any &a, const any &b)
-{
-    if (std::holds_alternative<int>(a) && std::holds_alternative<int>(b))
-    {
-        return std::any_cast<int>(a) + std::any_cast<int>(b);
-    }
-    else if (std::holds_alternative<float>(a) && std::holds_alternative<float>(b))
-    {
-        return std::any_cast<float>(a) + std::any_cast<float>(b);
-    }
-    else if (std::holds_alternative<double>(a) && std::holds_alternative<double>(b))
-    {
-        return std::any_cast<double>(a) + std::any_cast<double>(b);
-    }
-
-    return 0;
-}
+GroupByHandler::GroupByHandler(vector<Queue *> inputQueues, vector<Queue *> outputQueues, const std::string &groupByColumn, Aggregation aggregation)
+    : Handler(inputQueues, outputQueues), groupByColumn(groupByColumn), aggregation(aggregation) {}
 
 vector<DataFrame> GroupByHandler::process(const vector<DataFrame> &input)
 {
@@ -233,8 +269,8 @@ vector<DataFrame> GroupByHandler::process(const vector<DataFrame> &input)
     return outputVector;
 }
 
-JoinHandler::JoinHandler(const std::string &joinColumn)
-    : joinColumn(joinColumn) {}
+JoinHandler::JoinHandler(vector<Queue *> inputQueues, vector<Queue *> outputQueues, const std::string &joinColumn)
+    : Handler(inputQueues, outputQueues), joinColumn(joinColumn) {}
 
 vector<DataFrame> JoinHandler::process(const vector<DataFrame> &input)
 {
@@ -280,8 +316,8 @@ vector<DataFrame> ConcatHandler::process(const vector<DataFrame> &input)
     return outputVector;
 }
 
-SortHandler::SortHandler(const std::string &sortColumn)
-    : sortColumn(sortColumn) {}
+SortHandler::SortHandler(vector<Queue *> inputQueues, vector<Queue *> outputQueues, const std::string &sortColumn, SortOrder sortOrder)
+    : Handler(inputQueues, outputQueues), sortColumn(sortColumn), sortOrder(sortOrder) {}
 
 vector<DataFrame> SortHandler::process(const vector<DataFrame> &input)
 {
@@ -296,30 +332,111 @@ vector<DataFrame> SortHandler::process(const vector<DataFrame> &input)
         }
     }
 
-    // Insertion sort
-    for (int i = 0; i < input[0].columns[0].size(); i++)
+    std::vector<std::vector<any>> rows;
+    for (const auto &df : input)
     {
-        std::vector<any> row = input[0].getRow(i);
-        // Binary search to find the correct position
-        int low = 0;
-        int high = output.columns[0].size() - 1;
-        while (low <= high)
+        for (int i = 0; i < df.columns[0].size(); i++)
         {
-            int mid = low + (high - low) / 2;
-            if (output.columns[columnIndex].get(mid) < row[columnIndex])
-            {
-                low = mid + 1;
-            }
-            else
-            {
-                high = mid - 1;
-            }
+            std::vector<any> row = df.getRow(i);
+            rows.push_back(row);
         }
+    }
 
-        output.insertRow(low, row);
+    std::sort(rows.begin(), rows.end(), [columnIndex, this](const std::vector<any> &a, const std::vector<any> &b)
+              {
+        if (sortOrder == SortOrder::ASC)
+        {
+            return a[columnIndex] < b[columnIndex];
+        }
+        return a[columnIndex] > b[columnIndex]; });
+
+    for (const auto &row : rows)
+    {
+        output.addRow(row);
     }
 
     vector<DataFrame> outputVector;
     outputVector.push_back(output);
     return outputVector;
+}
+
+SplitHandler::SplitHandler(vector<Queue *> inputQueues, vector<Queue *> outputQueues, int splitSize)
+    : Handler(inputQueues, outputQueues), splitSize(splitSize) {}
+
+vector<DataFrame> SplitHandler::process(const vector<DataFrame> &input)
+{
+    vector<DataFrame> output;
+    for (const auto &df : input)
+    {
+        for (int i = 0; i < df.columns[0].size(); i += splitSize)
+        {
+            DataFrame split;
+            for (int j = i; j < i + splitSize && j < df.columns[0].size(); j++)
+            {
+                split.addRow(df.getRow(j));
+            }
+            output.push_back(split);
+        }
+    }
+
+    return output;
+}
+
+DropHandler::DropHandler(vector<Queue *> inputQueues, vector<Queue *> outputQueues, const vector<std::string> &columns)
+    : Handler(inputQueues, outputQueues), columns(columns) {}
+
+vector<DataFrame> DropHandler::process(const vector<DataFrame> &input)
+{
+    DataFrame output;
+    // Add columns that are not in the list of columns to drop
+    for (int i = 0; i < input[0].columnNames.size(); i++)
+    {
+        if (std::find(columns.begin(), columns.end(), input[0].columnNames[i]) == columns.end())
+        {
+            output.columnNames.push_back(input[0].columnNames[i]);
+            output.columns.push_back(Series());
+        }
+    }
+
+    for (const auto &df : input)
+    {
+        for (int i = 0; i < df.columns[0].size(); i++)
+        {
+            std::vector<any> row = df.getRow(i);
+            for (int j = 0; j < row.size(); j++)
+            {
+                if (std::find(columns.begin(), columns.end(), df.columnNames[j]) == columns.end())
+                {
+                    output.addRow(row);
+                    break;
+                }
+            }
+        }
+    }
+
+    vector<DataFrame> outputVector;
+    outputVector.push_back(output);
+    return outputVector;
+}
+
+CopyHandler::CopyHandler(vector<Queue *> inputQueues, vector<Queue *> outputQueues, int numCopies)
+    : Handler(inputQueues, outputQueues), numCopies(numCopies) {}
+
+vector<DataFrame> CopyHandler::process(const vector<DataFrame> &input)
+{
+    vector<DataFrame> output;
+    for (int i = 0; i < numCopies; i++)
+    {
+        DataFrame copy;
+        for (const auto &df : input)
+        {
+            for (int j = 0; j < df.columns[0].size(); j++)
+            {
+                copy.addRow(df.getRow(j));
+            }
+        }
+        output.push_back(copy);
+    }
+
+    return output;
 }
