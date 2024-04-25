@@ -120,11 +120,12 @@ DataFrame DataFrame::filter(std::function<bool(const Series &)> predicate)
  */
 void DataFrame::print() const
 {
-    for (size_t i = 0; i < columns.front().size(); ++i)
+    std::cout << "Printing DataFrame:" << std::endl;
+    for (size_t i = 0; i < columnNames.size(); ++i)
     {
-        for (size_t j = 0; j < columns.size(); ++j)
+        for (size_t j = 0; j < columns[0].size(); ++j)
         {
-            std::cout << std::any_cast<std::string>(columns[j].get(i)) << " ";
+            std::visit([](auto &&arg) { std::cout << arg << ", "; }, columns[i].get(j));
         }
         std::cout << std::endl;
     }
