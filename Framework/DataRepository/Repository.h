@@ -3,6 +3,7 @@
 
 #include "../Dataframe/Dataframe.h" // Include the header file of the DataFrame class
 #include "Extractor.h" // Include the header file of the Extractor class
+#include <vector>
 
 /**
  * @brief Class responsible for managing data extraction and storage.
@@ -11,7 +12,7 @@ class Repository
 {
 private:
     Extractor *extractor; // Pointer to an Extractor object
-    DataFrame data; // DataFrame object to store the extracted data
+    std::vector<DataFrame> data; // Vector to store the extracted data
 
 public:
     /**
@@ -29,9 +30,9 @@ public:
     /**
      * @brief Returns the extracted data.
      * 
-     * @return DataFrame The extracted data.
+     * @return A vector of DataFrames containing the extracted data.
      */
-    DataFrame getData() const;
+    vector<DataFrame> getData() const;
 };
 
 #endif // REPOSITORY_H 

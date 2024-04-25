@@ -5,7 +5,7 @@ void Repository::extractData()
     data = extractor->extractData();
 }
 
-DataFrame Repository::getData() const
+vector<DataFrame> Repository::getData() const
 {
     return data;
 }
